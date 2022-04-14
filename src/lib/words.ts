@@ -4,6 +4,23 @@ import { WRONG_SPOT_MESSAGE, NOT_CONTAINED_MESSAGE } from '../constants/strings'
 import { getGuessStatuses } from './statuses'
 import { default as GraphemeSplitter } from 'grapheme-splitter'
 
+declare global {
+  interface Date {
+    stdTimezoneOffset(): any
+    isDstObserved(): any
+  }
+}
+// eslint-disable-next-line no-extend-native
+Date.prototype.stdTimezoneOffset = function () {
+  var jan = new Date(this.getFullYear(), 0, 1)
+  var jul = new Date(this.getFullYear(), 6, 1)
+  return Math.max(jan.getTimezoneOffset(), jul.getTimezoneOffset())
+}
+// eslint-disable-next-line no-extend-native
+Date.prototype.isDstObserved = function () {
+  return this.getTimezoneOffset() < this.stdTimezoneOffset()
+}
+
 export const isWordInWordList = (word: string) => {
   return (
     WORDS.includes(localeAwareLowerCase(word)) ||
@@ -76,14 +93,19 @@ export const localeAwareUpperCase = (text: string) => {
 
 export const getWordOfDay = () => {
   // January 1, 2022 Game Epoch
-  const epochMs = new Date(2022, 0).valueOf()
+  let epochMs = new Date(2022, 0).valueOf()
+  // right after we define epochMs, add this code below:
+  var today = new Date()
+  if (today.isDstObserved()) {
+    epochMs = epochMs - 3600000 // adjust for DST and remove an hour (3600000 ms)
+  }
   const now = Date.now()
   const msInDay = 86400000
   const index = Math.floor((now - epochMs) / msInDay)
   const nextday = (index + 1) * msInDay + epochMs
 
   return {
-    solution: localeAwareUpperCase(WORDS[index % WORDS.length]),
+    solution: localeAwareUpperCase(WORDS[index * msInDay % WORDS.length]),
     solutionIndex: index,
     tomorrow: nextday,
   }
